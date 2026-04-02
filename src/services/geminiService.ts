@@ -1,9 +1,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GovernmentEvaluation } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+const ai = new GoogleGenAI({ apiKey });
 
 export async function evaluateGovernment(state: string, administration: string, duration?: number): Promise<GovernmentEvaluation> {
+  if (!apiKey) {
+    throw new Error("La clave de API de Gemini no está configurada. Por favor, verifica la configuración del proyecto.");
+  }
+
   const durationText = duration ? `Toma en cuenta que este es un periodo de gestión de ${duration} años. Evalúa los resultados acumulados o proyectados para este ciclo específico.` : '';
   const prompt = `Actúa como un analista experto en políticas públicas y desarrollo socioeconómico especializado en México. 
 Tu tarea es evaluar el desempeño del gobierno del estado de ${state}, México (administración/periodo: ${administration}) utilizando una escala de 0 a 10.
@@ -40,8 +45,8 @@ IMPORTANTE: Utiliza tu capacidad de búsqueda en tiempo real para obtener los da
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      model: "gemini-3-flash-preview",
+      contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
@@ -97,6 +102,20 @@ IMPORTANTE: Utiliza tu capacidad de búsqueda en tiempo real para obtener los da
     return { ...result, periodDuration: duration };
   } catch (error) {
     console.error("Error en la evaluación del gobierno:", error);
-    throw new Error("El servicio de análisis no está disponible en este momento. Por favor, intenta más tarde.");
+    let errorMessage = "El servicio de análisis no está disponible en este momento. Por favor, intenta más tarde.";
+    
+    if (error instanceof Error) {
+      if (error.message.includes("API key not valid")) {
+        errorMessage = "La clave de API de Gemini no es válida. Por favor, verifica la configuración del proyecto.";
+      } else if (error.message.includes("Quota exceeded")) {
+        errorMessage = "Se ha excedido el límite de uso del servicio de IA. Por favor, intenta más tarde.";
+      } else if (error.message.includes("Safety")) {
+        errorMessage = "La solicitud fue bloqueada por los filtros de seguridad de la IA. Intenta con otros términos.";
+      } else {
+        errorMessage = `Error del servicio de IA: ${error.message}`;
+      }
+    }
+    
+    throw new Error(errorMessage);
   }
 }

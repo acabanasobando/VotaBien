@@ -98,8 +98,29 @@ IMPORTANTE: Utiliza tu capacidad de búsqueda en tiempo real para obtener los da
     const text = response.text;
     if (!text) throw new Error("No se recibió respuesta del analista.");
     
-    const result = JSON.parse(text) as GovernmentEvaluation;
-    return { ...result, periodDuration: duration };
+    // Clean the response text to ensure it's pure JSON
+    let cleanJson = text.trim();
+    
+    // Remove markdown code blocks if present
+    const jsonMatch = cleanJson.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      cleanJson = jsonMatch[1].trim();
+    }
+    
+    // Remove any leading/trailing non-JSON characters (like "Here is the JSON:")
+    const firstBrace = cleanJson.indexOf('{');
+    const lastBrace = cleanJson.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
+    }
+    
+    try {
+      const result = JSON.parse(cleanJson) as GovernmentEvaluation;
+      return { ...result, periodDuration: duration };
+    } catch (parseError) {
+      console.error("Error parsing JSON response:", cleanJson);
+      throw new Error("La respuesta del analista no tiene el formato esperado o está incompleta. Por favor, intenta de nuevo.");
+    }
   } catch (error) {
     console.error("Error en la evaluación del gobierno:", error);
     let errorMessage = "El servicio de análisis no está disponible en este momento. Por favor, intenta más tarde.";

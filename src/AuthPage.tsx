@@ -45,6 +45,11 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
         body: JSON.stringify({ email }),
       });
 
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("El servidor no respondió con el formato esperado. Intenta de nuevo.");
+      }
+
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Error al enviar el código.');
 
@@ -69,6 +74,11 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code }),
       });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("El servidor no respondió con el formato esperado. Intenta de nuevo.");
+      }
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Código incorrecto.');

@@ -67,10 +67,17 @@ export default function App() {
   const [userRatings, setUserRatings] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user?.email) {
-        setUser(user.email);
-      } else {
+    // Check for custom email session first
+    const savedUser = localStorage.getItem('vota_bien_user');
+    if (savedUser) {
+      setUser(savedUser);
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser?.email) {
+        setUser(firebaseUser.email);
+        localStorage.setItem('vota_bien_user', firebaseUser.email);
+      } else if (!localStorage.getItem('vota_bien_user')) {
         setUser(null);
       }
       setAuthReady(true);
@@ -80,12 +87,14 @@ export default function App() {
 
   const handleLogin = (email: string) => {
     setUser(email);
+    localStorage.setItem('vota_bien_user', email);
   };
 
   const handleLogout = async () => {
     try {
       await logout();
       setUser(null);
+      localStorage.removeItem('vota_bien_user');
       setEvaluation(null);
       setUserRatings({});
     } catch (err) {

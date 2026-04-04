@@ -47,7 +47,9 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
 
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("El servidor no respondió con el formato esperado. Intenta de nuevo.");
+        const text = await response.text();
+        console.error("Respuesta no-JSON recibida (send-code):", text.substring(0, 200));
+        throw new Error("El servidor no respondió con el formato esperado. Esto puede deberse a que el servidor de autenticación no está activo en producción.");
       }
 
       const data = await response.json();
@@ -77,7 +79,9 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
 
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("El servidor no respondió con el formato esperado. Intenta de nuevo.");
+        const text = await response.text();
+        console.error("Respuesta no-JSON recibida (verify-code):", text.substring(0, 200));
+        throw new Error("El servidor no respondió con el formato esperado. Esto puede deberse a que el servidor de autenticación no está activo en producción.");
       }
 
       const data = await response.json();

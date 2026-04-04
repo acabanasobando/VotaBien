@@ -45,7 +45,7 @@ IMPORTANTE: Utiliza tu capacidad de búsqueda en tiempo real para obtener los da
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-pro-preview",
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -107,6 +107,8 @@ IMPORTANTE: Utiliza tu capacidad de búsqueda en tiempo real para obtener los da
     if (error instanceof Error) {
       if (error.message.includes("API key not valid")) {
         errorMessage = "La clave de API de Gemini no es válida. Por favor, verifica la configuración del proyecto.";
+      } else if (error.message.includes("PERMISSION_DENIED") || error.message.includes("403")) {
+        errorMessage = "Error de permisos (403): La clave de API no tiene permisos para este modelo o función (como búsqueda en Google). Por favor, selecciona una clave con facturación habilitada en el menú de configuración.";
       } else if (error.message.includes("Quota exceeded")) {
         errorMessage = "Se ha excedido el límite de uso del servicio de IA. Por favor, intenta más tarde.";
       } else if (error.message.includes("Safety")) {

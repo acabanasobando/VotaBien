@@ -22,6 +22,19 @@ import {
 import { evaluateGovernment } from './services/geminiService';
 import { GovernmentEvaluation, PillarEvaluation, PillarType } from './types';
 import { cn } from './lib/utils';
+import AuthPage from './AuthPage';
+import { auth, logout } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { Key } from 'lucide-react';
+
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
 
 const PILLAR_ICONS: Record<string, any> = {
   'Economía': TrendingUp,
@@ -42,6 +55,8 @@ const MEXICAN_STATES = [
 ];
 
 export default function App() {
+  const [user, setUser] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [state, setState] = useState('');
   const [administration, setAdministration] = useState('');
   const [duration, setDuration] = useState<number>(6);
@@ -50,6 +65,33 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPillar, setSelectedPillar] = useState<PillarType | null>(null);
   const [userRatings, setUserRatings] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user?.email) {
+        setUser(user.email);
+      } else {
+        setUser(null);
+      }
+      setAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = (email: string) => {
+    setUser(email);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setUser(null);
+      setEvaluation(null);
+      setUserRatings({});
+    } catch (err) {
+      console.error("Error logging out", err);
+    }
+  };
 
   const handleEvaluate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +109,18 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage onLogin={handleLogin} />;
+  }
 
   const handleUserRating = (pillar: string, rating: number) => {
     setUserRatings(prev => ({ ...prev, [pillar]: rating }));
@@ -107,6 +161,25 @@ export default function App() {
           <h1 className="text-xl font-black font-headline tracking-tight text-primary">VotaBien México</h1>
         </div>
         <div className="flex items-center gap-4">
+          {window.aistudio && (
+            <button 
+              onClick={() => window.aistudio?.openSelectKey()}
+              className="flex items-center gap-2 px-3 py-1.5 bg-surface-hover border border-white/10 rounded-lg text-xs font-bold text-on-surface hover:bg-white/5 transition-all"
+              title="Configurar clave de API para búsqueda en tiempo real"
+            >
+              <Key className="w-3.5 h-3.5 text-primary" />
+              <span className="hidden sm:inline">Configurar IA</span>
+            </button>
+          )}
+          <div className="hidden md:flex flex-col items-end">
+            <span className="text-xs font-medium text-on-surface">{user}</span>
+            <button 
+              onClick={handleLogout}
+              className="text-[10px] text-primary hover:underline font-bold uppercase tracking-wider"
+            >
+              Cerrar Sesión
+            </button>
+          </div>
           <button 
             onClick={() => { setEvaluation(null); setState(''); setAdministration(''); setSelectedPillar(null); }}
             className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
@@ -201,8 +274,21 @@ export default function App() {
               </form>
 
               {error && (
-                <div className="p-4 bg-status-bad/10 border border-status-bad/20 rounded-xl text-status-bad text-sm">
-                  {error}
+                <div className="p-6 bg-status-bad/10 border border-status-bad/20 rounded-2xl text-status-bad text-sm space-y-4">
+                  <div className="flex items-center gap-2 justify-center">
+                    <AlertCircle className="w-5 h-5" />
+                    <span className="font-bold">Error de Análisis</span>
+                  </div>
+                  <p>{error}</p>
+                  {(error.includes("403") || error.includes("permisos")) && window.aistudio && (
+                    <button 
+                      onClick={() => window.aistudio?.openSelectKey()}
+                      className="px-6 py-3 bg-status-bad text-white font-bold rounded-xl hover:bg-status-bad/90 transition-all flex items-center gap-2 mx-auto shadow-lg shadow-status-bad/20"
+                    >
+                      <Key className="w-4 h-4" />
+                      Configurar Clave de IA
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>

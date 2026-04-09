@@ -1,19 +1,27 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, Loader2, AlertCircle, Mail, Lock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { LogIn, Loader2, AlertCircle, Mail, Lock, ArrowRight, CheckCircle2, UserPlus, KeyRound } from 'lucide-react';
 import { cn } from './lib/utils';
-import { signInWithGoogle } from './firebase';
+import { 
+  signInWithGoogle, 
+  auth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  sendPasswordResetEmail 
+} from './firebase';
 import { useState } from 'react';
 
 interface AuthPageProps {
   onLogin: (email: string) => void;
 }
 
+type AuthMode = 'options' | 'login' | 'register' | 'forgot-password';
+
 export default function AuthPage({ onLogin }: AuthPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [step, setStep] = useState<'options' | 'email' | 'code'>('options');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<AuthMode>('options');
   const [success, setSuccess] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
@@ -32,64 +40,53 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
     }
   };
 
-  const handleSendCode = async (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || !password) return;
 
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error("Respuesta no-JSON recibida (send-code):", text.substring(0, 200));
-        throw new Error("El servidor no respondió con el formato esperado. Esto puede deberse a que el servidor de autenticación no está activo en producción.");
+      if (mode === 'login') {
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        if (result.user.email) onLogin(result.user.email);
+      } else if (mode === 'register') {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        if (result.user.email) onLogin(result.user.email);
       }
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Error al enviar el código.');
-
-      setSuccess('Código enviado. Revisa tu consola (simulación).');
-      setStep('code');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al enviar el código.');
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('Correo o contraseña incorrectos.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('Este correo ya está registrado.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('La contraseña debe tener al menos 6 caracteres.');
+      } else {
+        setError('Error al autenticar. Por favor, intenta de nuevo.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code) return;
+    if (!email) return;
 
     setLoading(true);
     setError(null);
+    setSuccess(null);
     try {
-      const response = await fetch('/api/auth/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code }),
-      });
-
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error("Respuesta no-JSON recibida (verify-code):", text.substring(0, 200));
-        throw new Error("El servidor no respondió con el formato esperado. Esto puede deberse a que el servidor de autenticación no está activo en producción.");
+      await sendPasswordResetEmail(auth, email);
+      setSuccess('Se ha enviado un correo para restablecer tu contraseña.');
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/user-not-found') {
+        setError('No existe una cuenta con este correo.');
+      } else {
+        setError('Error al enviar el correo de recuperación.');
       }
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Código incorrecto.');
-
-      onLogin(email);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al verificar el código.');
     } finally {
       setLoading(false);
     }
@@ -108,9 +105,10 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
           </div>
           <h1 className="text-2xl font-bold text-on-surface mb-2">Acceso a VotaBien</h1>
           <p className="text-on-surface-variant">
-            {step === 'options' && 'Elige tu método de acceso preferido.'}
-            {step === 'email' && 'Ingresa tu correo para recibir un código.'}
-            {step === 'code' && `Ingresa el código enviado a ${email}`}
+            {mode === 'options' && 'Elige tu método de acceso preferido.'}
+            {mode === 'login' && 'Ingresa tus credenciales para acceder.'}
+            {mode === 'register' && 'Crea una cuenta nueva para comenzar.'}
+            {mode === 'forgot-password' && 'Ingresa tu correo para recuperar tu contraseña.'}
           </p>
         </div>
 
@@ -126,7 +124,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             </motion.div>
           )}
 
-          {success && step === 'code' && (
+          {success && (
             <motion.div 
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -138,7 +136,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
           )}
 
           <AnimatePresence mode="wait">
-            {step === 'options' ? (
+            {mode === 'options' ? (
               <motion.div
                 key="options"
                 initial={{ opacity: 0, x: -20 }}
@@ -168,21 +166,96 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                   <div className="relative flex justify-center text-xs uppercase"><span className="bg-surface-container px-2 text-on-surface-variant">O también</span></div>
                 </div>
 
-                <button
-                  onClick={() => setStep('email')}
-                  className="w-full bg-surface-hover text-on-surface font-bold py-4 rounded-xl flex items-center justify-center gap-3 border border-white/10 transition-all hover:bg-white/5 active:scale-95"
-                >
-                  <Mail className="w-5 h-5 text-primary" />
-                  <span>Acceso por Correo</span>
-                </button>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setMode('login')}
+                    className="w-full bg-surface-hover text-on-surface font-bold py-4 rounded-xl flex items-center justify-center gap-2 border border-white/10 transition-all hover:bg-white/5 active:scale-95"
+                  >
+                    <LogIn className="w-4 h-4 text-primary" />
+                    <span>Ingresar</span>
+                  </button>
+                  <button
+                    onClick={() => setMode('register')}
+                    className="w-full bg-surface-hover text-on-surface font-bold py-4 rounded-xl flex items-center justify-center gap-2 border border-white/10 transition-all hover:bg-white/5 active:scale-95"
+                  >
+                    <UserPlus className="w-4 h-4 text-primary" />
+                    <span>Registrar</span>
+                  </button>
+                </div>
               </motion.div>
-            ) : step === 'email' ? (
+            ) : mode === 'login' || mode === 'register' ? (
               <motion.form
-                key="email-form"
+                key="auth-form"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                onSubmit={handleSendCode}
+                onSubmit={handleEmailAuth}
+                className="space-y-4"
+              >
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant" />
+                  <input
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-surface border border-white/10 rounded-xl py-4 pl-12 pr-4 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    required
+                  />
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant" />
+                  <input
+                    type="password"
+                    placeholder="Contraseña"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-surface border border-white/10 rounded-xl py-4 pl-12 pr-4 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    required
+                  />
+                </div>
+                
+                {mode === 'login' && (
+                  <button 
+                    type="button" 
+                    onClick={() => setMode('forgot-password')}
+                    className="text-xs text-primary hover:underline font-bold text-right w-full"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-primary text-on-primary font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                    <>
+                      <span>{mode === 'login' ? 'Ingresar' : 'Registrar'}</span>
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+                
+                <div className="flex justify-between items-center px-2">
+                  <button type="button" onClick={() => setMode('options')} className="text-on-surface-variant text-sm hover:text-on-surface">Volver</button>
+                  <button 
+                    type="button" 
+                    onClick={() => setMode(mode === 'login' ? 'register' : 'login')} 
+                    className="text-primary text-sm font-bold hover:underline"
+                  >
+                    {mode === 'login' ? 'Crear cuenta' : 'Ya tengo cuenta'}
+                  </button>
+                </div>
+              </motion.form>
+            ) : (
+              <motion.form
+                key="forgot-password-form"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                onSubmit={handleForgotPassword}
                 className="space-y-4"
               >
                 <div className="relative">
@@ -201,39 +274,14 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
                   disabled={loading}
                   className="w-full bg-primary text-on-primary font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Enviar Código</span><ArrowRight className="w-5 h-5" /></>}
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                    <>
+                      <span>Recuperar Contraseña</span>
+                      <KeyRound className="w-5 h-5" />
+                    </>
+                  )}
                 </button>
-                <button type="button" onClick={() => setStep('options')} className="w-full text-on-surface-variant text-sm hover:text-on-surface">Volver</button>
-              </motion.form>
-            ) : (
-              <motion.form
-                key="code-form"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                onSubmit={handleVerifyCode}
-                className="space-y-4"
-              >
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant" />
-                  <input
-                    type="text"
-                    maxLength={4}
-                    placeholder="0000"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full bg-surface border border-white/10 rounded-xl py-4 pl-12 pr-4 text-on-surface text-center text-2xl tracking-[1em] focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono"
-                    required
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-primary text-on-primary font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-                >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Acceder</span><ArrowRight className="w-5 h-5" /></>}
-                </button>
-                <button type="button" onClick={() => setStep('email')} className="w-full text-on-surface-variant text-sm hover:text-on-surface">Cambiar correo</button>
+                <button type="button" onClick={() => setMode('login')} className="w-full text-on-surface-variant text-sm hover:text-on-surface">Volver al ingreso</button>
               </motion.form>
             )}
           </AnimatePresence>

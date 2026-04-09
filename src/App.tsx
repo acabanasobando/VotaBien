@@ -17,7 +17,8 @@ import {
   BarChart3,
   ArrowLeft,
   Star,
-  MapPin
+  MapPin,
+  Key
 } from 'lucide-react';
 import { evaluateGovernment } from './services/geminiService';
 import { GovernmentEvaluation, PillarEvaluation, PillarType } from './types';
@@ -25,7 +26,6 @@ import { cn } from './lib/utils';
 import AuthPage from './AuthPage';
 import { auth, logout } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Key } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -220,7 +220,7 @@ export default function App() {
               <form onSubmit={handleEvaluate} className="max-w-xl mx-auto space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2 text-left">
-                    <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant ml-1">Estado de México</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant ml-1">Selecciona un Estado</label>
                     <select 
                       value={state}
                       onChange={(e) => setState(e.target.value)}

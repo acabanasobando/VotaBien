@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -18,14 +18,11 @@ import {
   ArrowLeft,
   Star,
   MapPin,
-  Key,
-  LogOut
+  Key
 } from 'lucide-react';
 import { evaluateGovernment } from './services/geminiService';
 import { GovernmentEvaluation, PillarEvaluation, PillarType } from './types';
 import { cn } from './lib/utils';
-import AuthPage from './AuthPage';
-import { auth, signOut, onAuthStateChanged } from './firebase';
 
 declare global {
   interface Window {
@@ -55,8 +52,6 @@ const MEXICAN_STATES = [
 ];
 
 export default function App() {
-  const [user, setUser] = useState<string | null>(null);
-  const [authReady, setAuthReady] = useState(false);
   const [state, setState] = useState('');
   const [administration, setAdministration] = useState('');
   const [duration, setDuration] = useState<number>(6);
@@ -65,33 +60,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPillar, setSelectedPillar] = useState<PillarType | null>(null);
   const [userRatings, setUserRatings] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser.email);
-      } else {
-        setUser(null);
-      }
-      setAuthReady(true);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleLogin = (email: string) => {
-    setUser(email);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setUser(null);
-      setEvaluation(null);
-      setUserRatings({});
-    } catch (err) {
-      console.error("Error signing out", err);
-    }
-  };
 
   const handleEvaluate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,18 +106,6 @@ export default function App() {
     ? Object.values(userRatings).reduce((a, b) => a + b, 0) / Object.values(userRatings).length 
     : null;
 
-  if (!authReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-surface">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthPage onLogin={handleLogin} />;
-  }
-
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -171,20 +127,6 @@ export default function App() {
               <span className="hidden sm:inline">Configurar IA</span>
             </button>
           )}
-          
-          <div className="flex items-center gap-3 pl-4 border-l border-white/10">
-            <div className="hidden sm:flex flex-col items-end">
-              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Usuario</span>
-              <span className="text-xs font-medium text-on-surface truncate max-w-[120px]">{user}</span>
-            </div>
-            <button 
-              onClick={handleLogout}
-              className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-all"
-              title="Cerrar Sesión"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
 
           <button 
             onClick={() => { setEvaluation(null); setState(''); setAdministration(''); setSelectedPillar(null); }}

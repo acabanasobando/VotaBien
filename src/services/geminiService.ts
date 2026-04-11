@@ -98,6 +98,20 @@ IMPORTANTE: Utiliza tu capacidad de búsqueda en tiempo real para obtener los da
     const text = response.text;
     if (!text) throw new Error("No se recibió respuesta del analista.");
     
+    // Extract grounding sources
+    const sources: any[] = [];
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (groundingChunks) {
+      groundingChunks.forEach((chunk: any) => {
+        if (chunk.web) {
+          sources.push({
+            uri: chunk.web.uri,
+            title: chunk.web.title
+          });
+        }
+      });
+    }
+
     // Clean the response text to ensure it's pure JSON
     let cleanJson = text.trim();
     
@@ -116,7 +130,7 @@ IMPORTANTE: Utiliza tu capacidad de búsqueda en tiempo real para obtener los da
     
     try {
       const result = JSON.parse(cleanJson) as GovernmentEvaluation;
-      return { ...result, periodDuration: duration };
+      return { ...result, periodDuration: duration, sources };
     } catch (parseError) {
       console.error("Error parsing JSON response:", cleanJson);
       throw new Error("La respuesta del analista no tiene el formato esperado o está incompleta. Por favor, intenta de nuevo.");

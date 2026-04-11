@@ -21,6 +21,11 @@ export interface PillarEvaluation {
   subIndicators?: SubIndicator[]; // For Economy
 }
 
+export interface GroundingSource {
+  uri: string;
+  title: string;
+}
+
 export interface GovernmentEvaluation {
   country: string;
   state: string;
@@ -30,4 +35,5 @@ export interface GovernmentEvaluation {
   averageScore: number;
   finalEvaluation: string;
   classification: 'Malo' | 'Regular' | 'Bueno';
+  sources?: GroundingSource[];
 }

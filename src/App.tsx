@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -23,9 +23,6 @@ import {
 import { evaluateGovernment } from './services/geminiService';
 import { GovernmentEvaluation, PillarEvaluation, PillarType } from './types';
 import { cn } from './lib/utils';
-import AuthPage from './AuthPage';
-import { auth, logout } from './firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 
 declare global {
   interface Window {
@@ -55,8 +52,6 @@ const MEXICAN_STATES = [
 ];
 
 export default function App() {
-  const [user, setUser] = useState<string | null>(null);
-  const [authReady, setAuthReady] = useState(false);
   const [state, setState] = useState('');
   const [administration, setAdministration] = useState('');
   const [duration, setDuration] = useState<number>(6);
@@ -65,42 +60,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPillar, setSelectedPillar] = useState<PillarType | null>(null);
   const [userRatings, setUserRatings] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    // Check for custom email session first
-    const savedUser = localStorage.getItem('vota_bien_user');
-    if (savedUser) {
-      setUser(savedUser);
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser?.email) {
-        setUser(firebaseUser.email);
-        localStorage.setItem('vota_bien_user', firebaseUser.email);
-      } else if (!localStorage.getItem('vota_bien_user')) {
-        setUser(null);
-      }
-      setAuthReady(true);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleLogin = (email: string) => {
-    setUser(email);
-    localStorage.setItem('vota_bien_user', email);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      setUser(null);
-      localStorage.removeItem('vota_bien_user');
-      setEvaluation(null);
-      setUserRatings({});
-    } catch (err) {
-      console.error("Error logging out", err);
-    }
-  };
 
   const handleEvaluate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,18 +77,6 @@ export default function App() {
       setLoading(false);
     }
   };
-
-  if (!authReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-surface">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthPage onLogin={handleLogin} />;
-  }
 
   const handleUserRating = (pillar: string, rating: number) => {
     setUserRatings(prev => ({ ...prev, [pillar]: rating }));
@@ -180,15 +127,6 @@ export default function App() {
               <span className="hidden sm:inline">Configurar IA</span>
             </button>
           )}
-          <div className="hidden md:flex flex-col items-end">
-            <span className="text-xs font-medium text-on-surface">{user}</span>
-            <button 
-              onClick={handleLogout}
-              className="text-[10px] text-primary hover:underline font-bold uppercase tracking-wider"
-            >
-              Cerrar Sesión
-            </button>
-          </div>
           <button 
             onClick={() => { setEvaluation(null); setState(''); setAdministration(''); setSelectedPillar(null); }}
             className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
@@ -476,6 +414,35 @@ export default function App() {
                   {evaluation.finalEvaluation}
                 </div>
               </section>
+
+              {/* Sources */}
+              {evaluation.sources && evaluation.sources.length > 0 && (
+                <section className="p-8 rounded-2xl bg-surface border border-white/5 space-y-4">
+                  <h3 className="text-xl font-bold font-headline flex items-center gap-2">
+                    <Search className="w-5 h-5 text-primary" />
+                    Fuentes de Información (Google AI Search)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {evaluation.sources.map((source, idx) => (
+                      <a 
+                        key={idx}
+                        href={source.uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all group border border-transparent hover:border-primary/30"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                          <ChevronRight className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-on-surface truncate">{source.title}</p>
+                          <p className="text-[10px] text-on-surface-variant truncate">{source.uri}</p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </section>
+              )}
             </motion.div>
           ) : evaluation && selectedPillar && currentPillarData && (
             <motion.div 

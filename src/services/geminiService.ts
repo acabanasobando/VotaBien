@@ -1,12 +1,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GovernmentEvaluation } from "../types";
 
+// Initialize Gemini API
+// process.env.GEMINI_API_KEY is injected by Vite at build time from environment variables
 const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
 const ai = new GoogleGenAI({ apiKey });
 
 export async function evaluateGovernment(state: string, administration: string, duration?: number): Promise<GovernmentEvaluation> {
   if (!apiKey) {
-    throw new Error("La clave de API de Gemini no está configurada. Por favor, verifica la configuración del proyecto.");
+    throw new Error("La clave de API de Gemini no está configurada. Por favor, verifica la configuración del proyecto en el panel de Secretos.");
   }
 
   const durationText = duration ? `Toma en cuenta que este es un periodo de gestión de ${duration} años. Evalúa los resultados acumulados o proyectados para este ciclo específico.` : '';

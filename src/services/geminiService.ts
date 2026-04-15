@@ -43,7 +43,7 @@ Luego:
 - Da una evaluación final sintética del gobierno estatal.
 - Clasifica el desempeño como: "Malo" (0-4.5), "Regular" (4.6-7.4), "Bueno" (7.5-10).
 
-IMPORTANTE: Utiliza tu capacidad de búsqueda en tiempo real para obtener los datos más recientes y precisos de fuentes oficiales (INEGI, CONEVAL, portales de transparencia estatales, etc.). Basa el análisis en estos datos y criterios comparables. Evita opiniones personales o ideológicas. Responde SIEMPRE en español.`;
+IMPORTANTE: Utiliza la herramienta de Google Search para obtener los datos más recientes y precisos de fuentes oficiales (INEGI, CONEVAL, portales de transparencia estatales, etc.). Basa el análisis en estos datos y criterios comparables. Evita opiniones personales o ideológicas. Responde SIEMPRE en español.`;
 
   try {
     const response = await ai.models.generateContent({

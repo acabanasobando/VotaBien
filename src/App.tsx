@@ -421,7 +421,7 @@ export default function App() {
                 <section className="p-8 rounded-2xl bg-surface border border-white/5 space-y-4">
                   <h3 className="text-xl font-bold font-headline flex items-center gap-2">
                     <Search className="w-5 h-5 text-primary" />
-                    Fuentes de Información (Google AI Search)
+                    Fuentes de Información (Google Search)
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {evaluation.sources.map((source, idx) => (
